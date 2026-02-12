@@ -1,8 +1,6 @@
 package http
 
 import (
-	"net/http"
-
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
@@ -12,6 +10,7 @@ import (
 // NewEcho creates Echo instance with middleware and routes.
 func NewEcho(
 	notificationHandler *NotificationHandler,
+	healthHandler *HealthHandler,
 	basePath string,
 ) *echo.Echo {
 	e := echo.New()
@@ -22,10 +21,10 @@ func NewEcho(
 	e.Use(middleware.RequestID())
 	e.Use(httpmw.CorrelationID())
 
-	// Simple health endpoint (no dependencies)
-	e.GET("/health", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
-	})
+	// Health and metrics routes
+	if healthHandler != nil {
+		RegisterHealthRoutes(e, healthHandler)
+	}
 
 	// API routes (base group)
 	if notificationHandler != nil {

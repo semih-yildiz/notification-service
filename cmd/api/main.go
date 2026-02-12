@@ -50,9 +50,17 @@ func main() {
 	}
 	defer pub.Close()
 
+	// RabbitMQ Management API client (for metrics)
+	mqManagement := rabbitmq.NewManagementClient(
+		cfg.RabbitMQ.ManagementURL,
+		cfg.RabbitMQ.ManagementUser,
+		cfg.RabbitMQ.ManagementPass,
+	)
+
 	// Repositories
 	notifRepo := postgres.NewNotificationRepository(db.DB)
 	batchRepo := postgres.NewBatchRepository(db.DB)
+	metricsRepo := postgres.NewMetricsRepository(db.DB)
 	idemStore := redis.NewIdempotencyStore(rdb)
 	appLogger := logger.New()
 
@@ -64,9 +72,10 @@ func main() {
 
 	// HTTP layer: handle
 	notificationHandler := httpserver.NewNotificationHandler(createUsecase, cancelUsecase, getUsecase, listUsecase)
+	healthHandler := httpserver.NewHealthHandler(sqlDB, rdb, metricsRepo, mqManagement)
 
 	// Initialize Echo server
-	e := httpserver.NewEcho(notificationHandler, "")
+	e := httpserver.NewEcho(notificationHandler, healthHandler, "")
 	e.Server.Addr = ":" + cfg.App.Port
 
 	// Start server
