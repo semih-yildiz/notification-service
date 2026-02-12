@@ -8,7 +8,10 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/semih-yildiz/notification-service/internal/application/notification/command/cancel"
 	"github.com/semih-yildiz/notification-service/internal/application/notification/command/create"
+	"github.com/semih-yildiz/notification-service/internal/application/notification/query/get"
+	"github.com/semih-yildiz/notification-service/internal/application/notification/query/list"
 	httpserver "github.com/semih-yildiz/notification-service/internal/http"
 	"github.com/semih-yildiz/notification-service/internal/infrastructure/cache/redis"
 	"github.com/semih-yildiz/notification-service/internal/infrastructure/config"
@@ -55,9 +58,12 @@ func main() {
 
 	// Application layer: usecase
 	createUsecase := create.NewUseCase(notifRepo, batchRepo, pub, idemStore, appLogger)
+	cancelUsecase := cancel.NewUseCase(notifRepo)
+	getUsecase := get.NewUseCase(notifRepo, batchRepo)
+	listUsecase := list.NewUseCase(notifRepo)
 
 	// HTTP layer: handle
-	notificationHandler := httpserver.NewNotificationHandler(createUsecase)
+	notificationHandler := httpserver.NewNotificationHandler(createUsecase, cancelUsecase, getUsecase, listUsecase)
 
 	// Initialize Echo server
 	e := httpserver.NewEcho(notificationHandler, "")
