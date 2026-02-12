@@ -128,6 +128,107 @@ func (u *UseCase) CreateNotification(ctx context.Context, cmd *Command) (*notifi
 	return n, nil
 }
 
+// CreateNotificationBatches creates a batch and its notifications.
+func (u *UseCase) CreateNotificationBatches(ctx context.Context, cmd *BatchCommand) (*BatchResult, error) {
+	if len(cmd.Items) == 0 || len(cmd.Items) > notification.MaxBatchSize {
+		u.log.Warn(ctx, "batch size invalid", port.F("size", len(cmd.Items)))
+		return nil, notification.ErrBatchTooLarge
+	}
+
+	batchID := uuid.New().String()
+	now := time.Now()
+
+	b := &notification.Batch{
+		ID:             batchID,
+		IdempotencyKey: cmd.IdempotencyKey,
+		CreatedAt:      now,
+	}
+
+	if err := u.batch.Create(ctx, b); err != nil {
+		u.log.Error(ctx, "failed to create batch", port.F("error", err), port.F("batch_id", batchID))
+		return nil, err
+	}
+
+	u.log.Info(ctx, "batch created", port.F("batch_id", batchID), port.F("item_count", len(cmd.Items)))
+
+	var notifications []*notification.Notification
+	var events []*port.NotificationEvent
+	skipped := 0
+
+	// First pass: validate and build notification entities
+	for _, item := range cmd.Items {
+		ch := notification.Channel(item.Channel)
+		if !ch.Valid() {
+			skipped++
+			continue
+		}
+		pr := notification.Priority(item.Priority)
+		if !pr.Valid() {
+			pr = notification.PriorityNormal
+		}
+		if len(item.Content) > notification.MaxContentLength(ch) || len(item.Content) == 0 || len(item.Recipient) == 0 {
+			skipped++
+			continue
+		}
+
+		id := uuid.New().String()
+		n := &notification.Notification{
+			ID:        id,
+			BatchID:   &batchID,
+			Recipient: item.Recipient,
+			Channel:   ch,
+			Content:   item.Content,
+			Priority:  pr,
+			Status:    notification.StatusPending,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		notifications = append(notifications, n)
+		events = append(events, &port.NotificationEvent{
+			NotificationID: id,
+			BatchID:        &batchID,
+			Recipient:      item.Recipient,
+			Channel:        ch,
+			Content:        item.Content,
+			Priority:       pr,
+			CreatedAt:      now.Format("2006-01-02T15:04:05Z07:00"),
+		})
+	}
+
+	// Second pass: bulk insert all valid notifications
+	if len(notifications) > 0 {
+		if err := u.repo.CreateBatch(ctx, notifications); err != nil {
+			u.log.Error(ctx, "failed to create batch notifications in DB", port.F("error", err), port.F("batch_id", batchID))
+			return nil, err
+		}
+	}
+
+	if skipped > 0 {
+		u.log.Warn(ctx, "some batch items skipped", port.F("batch_id", batchID), port.F("skipped", skipped))
+	}
+
+	if err := u.pub.PublishBatch(ctx, events); err != nil {
+		u.log.Error(ctx, "failed to publish batch events", port.F("error", err), port.F("batch_id", batchID))
+		return &BatchResult{BatchID: batchID, Notifications: notifications}, err
+	}
+
+	for _, n := range notifications {
+		if err := u.repo.UpdateStatus(ctx, n.ID, notification.StatusQueued, nil, nil); err != nil {
+			u.log.Error(ctx, "failed to update status to queued", port.F("error", err), port.F("notification_id", n.ID))
+		}
+		n.Status = notification.StatusQueued
+	}
+
+	u.log.Info(ctx, "batch events published", port.F("batch_id", batchID), port.F("notification_count", len(notifications)))
+	return &BatchResult{BatchID: batchID, Notifications: notifications}, nil
+}
+
+type BatchResult struct {
+	BatchID       string
+	Notifications []*notification.Notification
+}
+
 func isUniqueViolation(err error) bool {
 	if err == nil {
 		return false
