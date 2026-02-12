@@ -220,3 +220,86 @@ go build -o api ./cmd/api && go build -o worker ./cmd/worker
 # Tests
 go test ./...
 ```
+### System overview
+
+```mermaid
+---
+config:
+  theme: dark
+  look: classic
+---
+flowchart LR
+ subgraph subGraph0["Client Layer"]
+        A["Mobile App"]
+        B["Web App"]
+        C["Backend Service"]
+  end
+ subgraph subGraph1["API Layer"]
+        D["HTTP API<br>Port: 8080"]
+        E["Middleware"]
+        F["Router"]
+  end
+ subgraph subGraph2["Application Layer"]
+        G["Create Notification"]
+        H["Process UseCase"]
+        I["Cancel UseCase"]
+        J["Get UseCase"]
+        K["List UseCase"]
+        HC["Health Check<br>GET /health"]
+        MET["Metrics<br>GET /metrics"]
+  end
+ subgraph subGraph3["Infrastructure - MQ"]
+        L["RabbitMQ"]
+        M["Queue: SMS"]
+        N["Queue: Email"]
+        O["Queue: Push"]
+  end
+ subgraph subGraph4["Worker Layer"]
+        P["Consumer 1: SMS"]
+        Q["Consumer 2: Email"]
+        R["Consumer 3: Push"]
+  end
+ subgraph subGraph5["Infrastructure - Data"]
+        S[("PostgreSQL<br>Notifications")]
+        T[("Redis<br>Cache &amp; Rate Limit")]
+  end
+ subgraph subGraph6["External Services"]
+        U["SMS Provider<br>Webhook"]
+        V["Email Provider<br>Webhook"]
+        W["Push Provider<br>Webhook"]
+  end
+    A --> D
+    B --> D
+    C --> D
+    D --> E
+    E --> F
+    F --> G & I & J & K & HC & MET
+    G --> S & T & L
+    L --> M & N & O
+    M --> P
+    N --> Q
+    O --> R
+    P --> H
+    Q --> H
+    R --> H
+    H --> S & T & U & V & W
+    J --> S
+    K --> S
+    I --> S
+    HC --> S & T
+    MET --> S & L
+
+    style D fill:#38BDF8,stroke:#E2E8F0,stroke-width:1px
+    style HC fill:#818CF8,stroke:#000000,stroke-width:1px,color:#424242
+    style MET fill:#818CF8,stroke:#000000,stroke-width:1px,color:#424242
+    style L fill:#757575,stroke:#000000,stroke-width:1px,color:#000000
+    style P fill:#4ADE80,stroke:#000000,stroke-width:1px,color:#000000
+    style Q fill:#4ADE80,stroke:#000000,stroke-width:1px,color:#000000
+    style R fill:#4ADE80,stroke:#000000,stroke-width:1px,color:#000000
+    style S fill:#A78BFA,stroke:#E2E8F0,stroke-width:1px,color:#000000
+    style T fill:#F87171,stroke:#E2E8F0,stroke-width:1px
+    style subGraph4 fill:#424242,stroke:#FFD600
+    style subGraph0 fill:#424242,stroke:#424242
+    style subGraph1 stroke:#FFD600
+
+```
