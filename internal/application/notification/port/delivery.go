@@ -3,9 +3,9 @@ package port
 import "context"
 
 type DeliveryRequest struct {
-	To      string
-	Channel string
-	Content string
+	To      string `json:"to"`
+	Channel string `json:"channel"`
+	Content string `json:"content"`
 }
 
 type DeliveryResponse struct {
