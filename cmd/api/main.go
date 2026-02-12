@@ -10,12 +10,24 @@ import (
 
 	httpserver "github.com/semih-yildiz/notification-service/internal/http"
 	"github.com/semih-yildiz/notification-service/internal/infrastructure/config"
+	"github.com/semih-yildiz/notification-service/internal/infrastructure/persistence/postgres"
 )
 
 func main() {
 	cfg := config.Load()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// Initialize database connection
+	db, err := postgres.New(ctx, postgres.Config{DSN: cfg.DB.DSN})
+	if err != nil {
+		log.Fatalf("db: %v", err)
+	}
+	sqlDB, err := db.DB.DB()
+	if err != nil {
+		log.Fatalf("db sql: %v", err)
+	}
+	defer sqlDB.Close()
 
 	// Initialize Echo server
 	e := httpserver.NewEcho()
