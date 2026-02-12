@@ -1,0 +1,38 @@
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
+	httpserver "github.com/semih-yildiz/notification-service/internal/http"
+	"github.com/semih-yildiz/notification-service/internal/infrastructure/config"
+)
+
+func main() {
+	cfg := config.Load()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Initialize Echo server
+	e := httpserver.NewEcho()
+	e.Server.Addr = ":" + cfg.App.Port
+
+	// Start server
+	go func() {
+		log.Printf("api listening on :%s (env=%s)", cfg.App.Port, cfg.Env)
+		if err := e.Start(e.Server.Addr); err != nil && err != http.ErrServerClosed {
+			log.Printf("serve: %v", err)
+		}
+	}()
+
+	// Graceful shutdown
+	<-ctx.Done()
+	if err := e.Shutdown(context.Background()); err != nil {
+		log.Printf("shutdown: %v", err)
+	}
+	log.Println("api shutdown")
+}
