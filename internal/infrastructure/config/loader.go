@@ -36,7 +36,7 @@ func Load() *Config {
 			ManagementPass: getEnv("RABBITMQ_MANAGEMENT_PASS", "guest"),
 		},
 		Webhook: WebhookConfig{
-			URL: getEnv("WEBHOOK_URL", "https://webhook.site/unique-id"),
+			URL: getEnv("WEBHOOK_URL", "https://webhook.site/211a3436-a302-48e2-a34c-a4d1cbe2294a"),
 		},
 	}
 

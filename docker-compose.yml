@@ -16,7 +16,7 @@ services:
       RABBITMQ_MANAGEMENT_URL: "http://rabbitmq:15672"
       RABBITMQ_MANAGEMENT_USER: "guest"
       RABBITMQ_MANAGEMENT_PASS: "guest"
-      WEBHOOK_URL: "https://webhook.site/your-unique-id"
+      WEBHOOK_URL: "https://webhook.site/211a3436-a302-48e2-a34c-a4d1cbe2294a"
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,7 +37,7 @@ services:
       # Optional (with sensible defaults)
       REDIS_ADDR: "redis:6379"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
-      WEBHOOK_URL: "https://webhook.site/your-unique-id"
+      WEBHOOK_URL: "https://webhook.site/211a3436-a302-48e2-a34c-a4d1cbe2294a"
     depends_on:
       postgres:
         condition: service_healthy
