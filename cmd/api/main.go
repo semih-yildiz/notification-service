@@ -8,11 +8,13 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/semih-yildiz/notification-service/internal/application/notification/command/create"
 	httpserver "github.com/semih-yildiz/notification-service/internal/http"
 	"github.com/semih-yildiz/notification-service/internal/infrastructure/cache/redis"
 	"github.com/semih-yildiz/notification-service/internal/infrastructure/config"
 	"github.com/semih-yildiz/notification-service/internal/infrastructure/messaging/rabbitmq"
 	"github.com/semih-yildiz/notification-service/internal/infrastructure/persistence/postgres"
+	"github.com/semih-yildiz/notification-service/internal/shared/logger"
 )
 
 func main() {
@@ -45,16 +47,20 @@ func main() {
 	}
 	defer pub.Close()
 
-	// RabbitMQ Management API client
-	mqManagement := rabbitmq.NewManagementClient(
-		cfg.RabbitMQ.ManagementURL,
-		cfg.RabbitMQ.ManagementUser,
-		cfg.RabbitMQ.ManagementPass,
-	)
-	_ = mqManagement
+	// Repositories
+	notifRepo := postgres.NewNotificationRepository(db.DB)
+	batchRepo := postgres.NewBatchRepository(db.DB)
+	idemStore := redis.NewIdempotencyStore(rdb)
+	appLogger := logger.New()
+
+	// Application layer: usecase
+	createUsecase := create.NewUseCase(notifRepo, batchRepo, pub, idemStore, appLogger)
+
+	// HTTP layer: handle
+	notificationHandler := httpserver.NewNotificationHandler(createUsecase)
 
 	// Initialize Echo server
-	e := httpserver.NewEcho()
+	e := httpserver.NewEcho(notificationHandler, "")
 	e.Server.Addr = ":" + cfg.App.Port
 
 	// Start server
